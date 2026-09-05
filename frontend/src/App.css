@@ -3255,3 +3255,194 @@ body {
       10px 14px;
   }
 }
+
+/* =====================================================
+   ALREADY HAVE A ROOM - NEW
+===================================================== */
+
+.already-room-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 13px 18px;
+
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
+
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+  transition: all 0.25s ease;
+}
+
+.already-room-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.3);
+
+  transform: translateY(-2px);
+
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.25);
+}
+
+.already-room-btn:active {
+  transform: translateY(0);
+}
+
+.already-room-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+
+/* =====================================================
+   PREVIOUS ROOM CODE BOX
+===================================================== */
+
+.existing-room-box {
+  width: 100%;
+  margin-top: 12px;
+  padding: 12px;
+
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  box-sizing: border-box;
+
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 14px;
+
+  background: rgba(10, 12, 22, 0.45);
+
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+
+  animation: existingRoomOpen 0.25s ease;
+}
+
+
+/* INPUT */
+
+.existing-room-box input {
+  flex: 1;
+  min-width: 0;
+
+  padding: 11px 13px;
+
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+
+  outline: none;
+
+  background: rgba(255, 255, 255, 0.08);
+  color: white;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.existing-room-box input::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+}
+
+.existing-room-box input:focus {
+  border-color: rgba(255, 255, 255, 0.4);
+
+  background: rgba(255, 255, 255, 0.12);
+}
+
+
+/* OPEN BUTTON */
+
+.existing-open-btn {
+  padding: 11px 17px;
+
+  border: none;
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.92);
+  color: #15151f;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.existing-open-btn:hover {
+  transform: translateY(-1px);
+
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.25);
+}
+
+
+/* CANCEL BUTTON */
+
+.existing-cancel-btn {
+  padding: 11px 14px;
+
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 10px;
+
+  background: rgba(255, 255, 255, 0.07);
+  color: white;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.existing-cancel-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+
+/* OPEN ANIMATION */
+
+@keyframes existingRoomOpen {
+  from {
+    opacity: 0;
+    transform: translateY(-7px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* MOBILE */
+
+@media (max-width: 600px) {
+
+  .existing-room-box {
+    flex-direction: column;
+  }
+
+  .existing-room-box input,
+  .existing-open-btn,
+  .existing-cancel-btn {
+    width: 100%;
+    box-sizing: border-box;
+  }
+}

@@ -206,13 +206,66 @@ const onlineUsers = {};
    HELPER FUNCTIONS
 ===================================================== */
 
-function getRoomUsers(roomCode) {
+/*
+  Internal online users structure:
+
+  {
+    ROOMCODE: [
+      {
+        userId: "user_123",
+        name: "Sujata",
+        socketIds: [
+          "socket_1",
+          "socket_2"
+        ]
+      }
+    ]
+  }
+
+  Same user can have multiple tabs/socket connections,
+  but will appear only once in the online users list.
+*/
+
+function getRoomUserEntries(roomCode) {
   if (!onlineUsers[roomCode]) {
     onlineUsers[roomCode] = [];
   }
 
   return onlineUsers[roomCode];
 }
+
+/*
+  Data sent to frontend.
+
+  Only one visible entry is returned per userId.
+
+  socketId is kept because Room.jsx may use it
+  as a React key.
+*/
+
+function getRoomUsers(roomCode) {
+  const users =
+    getRoomUserEntries(roomCode);
+
+  return users.map((user) => ({
+    socketId:
+      user.socketIds[0] ||
+      user.userId,
+
+    userId:
+      user.userId,
+
+    name:
+      user.name,
+  }));
+}
+
+/*
+  Remove only one disconnected socket.
+
+  If the same user still has another tab open,
+  they remain online.
+*/
 
 function removeSocketFromRoom(
   roomCode,
@@ -222,11 +275,31 @@ function removeSocketFromRoom(
     return;
   }
 
+  onlineUsers[roomCode].forEach(
+    (user) => {
+      user.socketIds =
+        user.socketIds.filter(
+          (id) =>
+            id !== socketId
+        );
+    }
+  );
+
+  /*
+    Remove users only when they have
+    no active sockets remaining.
+  */
+
   onlineUsers[roomCode] =
     onlineUsers[roomCode].filter(
       (user) =>
-        user.socketId !== socketId
+        user.socketIds.length > 0
     );
+
+  /*
+    This only removes temporary online presence.
+    It does NOT delete the MongoDB room.
+  */
 
   if (
     onlineUsers[roomCode].length === 0
@@ -560,7 +633,7 @@ io.on(
 
           /*
             Remove socket from old room
-            if needed
+            if needed.
           */
 
           if (
@@ -592,8 +665,7 @@ io.on(
           socket.join(code);
 
           /*
-            Store user identity
-            for this socket
+            Store identity for this socket.
           */
 
           socket.data.roomCode =
@@ -605,37 +677,91 @@ io.on(
           socket.data.name =
             name.trim();
 
+          /*
+            Get internal online users.
+          */
+
           const users =
-            getRoomUsers(code);
+            getRoomUserEntries(code);
+
+          /*
+            Find same person by persistent userId.
+
+            Important:
+            We do NOT check only socketId because
+            every browser tab gets a different socketId.
+          */
 
           const existingUser =
             users.find(
               (user) =>
-                user.socketId ===
-                socket.id
+                user.userId ===
+                userId
             );
 
-          if (!existingUser) {
-            users.push({
-              socketId:
-                socket.id,
+          if (existingUser) {
+            /*
+              User already exists in this room.
 
+              Update display name in case
+              it has changed.
+            */
+
+            existingUser.name =
+              name.trim();
+
+            /*
+              Add this tab's socket to the same user.
+            */
+
+            if (
+              !existingUser.socketIds.includes(
+                socket.id
+              )
+            ) {
+              existingUser.socketIds.push(
+                socket.id
+              );
+            }
+          } else {
+            /*
+              Completely new person in the room.
+            */
+
+            users.push({
               userId,
 
               name:
                 name.trim(),
+
+              socketIds: [
+                socket.id,
+              ],
             });
           }
 
+          /*
+            Send duplicate-free users.
+          */
+
           io.to(code).emit(
             "roomUsers",
-            users
+            getRoomUsers(code)
           );
+
+          /*
+            Send persisted playlist
+            from MongoDB to this listener.
+          */
 
           socket.emit(
             "playlistUpdated",
             room.playlist
           );
+
+          /*
+            Send room/admin information.
+          */
 
           socket.emit(
             "roomInfo",
@@ -683,6 +809,13 @@ io.on(
           roomCode
             .trim()
             .toUpperCase();
+
+        /*
+          Remove only this socket.
+
+          If the same user has another tab,
+          they remain online.
+        */
 
         removeSocketFromRoom(
           code,
@@ -806,7 +939,15 @@ io.on(
             newSong
           );
 
+          /*
+            Save song permanently in MongoDB.
+          */
+
           await room.save();
+
+          /*
+            Update every listener in the room.
+          */
 
           io.to(code).emit(
             "playlistUpdated",
@@ -915,6 +1056,14 @@ io.on(
             song.ownerId ===
             currentUserId;
 
+          /*
+            Admin:
+            Can delete any song.
+
+            Normal member:
+            Can delete only their own song.
+          */
+
           if (
             !isAdmin &&
             !isOwner
@@ -936,6 +1085,10 @@ io.on(
                 item.id !==
                 songId
             );
+
+          /*
+            Save updated playlist permanently.
+          */
 
           await room.save();
 
@@ -1066,6 +1219,14 @@ io.on(
         if (!roomCode) {
           return;
         }
+
+        /*
+          Remove this tab/socket only.
+
+          If another tab belonging to the
+          same user is still open, the user
+          remains visible online.
+        */
 
         removeSocketFromRoom(
           roomCode,

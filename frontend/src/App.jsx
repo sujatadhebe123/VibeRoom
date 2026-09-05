@@ -24,7 +24,7 @@ const API_URL =
 
 function getUserId() {
   let userId =
-    sessionStorage.getItem(
+    localStorage.getItem(
       "vibeUserId"
     );
 
@@ -37,7 +37,7 @@ function getUserId() {
         .toString(36)
         .substring(2, 10);
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "vibeUserId",
       userId
     );
@@ -47,8 +47,7 @@ function getUserId() {
 }
 
 /* =========================
-   GET INDIVIDUAL USER
-   ROOMS STORAGE KEY
+   GET USER ROOMS KEY
 ========================= */
 
 function getUserRoomsKey() {
@@ -90,8 +89,18 @@ function HomePage() {
   ] = useState("");
 
   const [
+    existingCode,
+    setExistingCode,
+  ] = useState("");
+
+  const [
     showJoin,
     setShowJoin,
+  ] = useState(false);
+
+  const [
+    showExisting,
+    setShowExisting,
   ] = useState(false);
 
   const [
@@ -108,7 +117,7 @@ function HomePage() {
       getUserId();
 
     const savedName =
-      sessionStorage.getItem(
+      localStorage.getItem(
         "listenerName"
       ) || "";
 
@@ -128,7 +137,7 @@ function HomePage() {
   }, []);
 
   /* =========================
-     BACKGROUND MOVEMENT
+     BACKGROUND
   ========================= */
 
   const handleMouseMove =
@@ -152,7 +161,7 @@ function HomePage() {
     };
 
   /* =========================
-     GENERATE ROOM CODE
+     ROOM CODE
   ========================= */
 
   const generateRoomCode =
@@ -182,11 +191,60 @@ function HomePage() {
     };
 
   /* =========================
+     ADD ROOM TO YOUR ROOMS
+  ========================= */
+
+  const addRoomToSavedRooms =
+    ({
+      roomCode,
+      roomName,
+      createdBy,
+      songs,
+      type,
+    }) => {
+
+      const alreadyExists =
+        rooms.some(
+          (room) =>
+            room.roomCode ===
+            roomCode
+        );
+
+      if (alreadyExists) {
+        return;
+      }
+
+      const newRoom = {
+        id: Date.now(),
+
+        roomName,
+
+        roomCode,
+
+        createdBy,
+
+        songs: songs || 0,
+
+        type,
+      };
+
+      const updatedRooms = [
+        newRoom,
+        ...rooms,
+      ];
+
+      saveUserRooms(
+        updatedRooms
+      );
+    };
+
+  /* =========================
      CREATE ROOM
   ========================= */
 
   const createRoom =
     async () => {
+
       if (
         name.trim() === ""
       ) {
@@ -242,41 +300,32 @@ function HomePage() {
           return;
         }
 
-        sessionStorage.setItem(
+        localStorage.setItem(
           "listenerName",
           name.trim()
         );
 
-        const newRoom = {
-          id: Date.now(),
+        addRoomToSavedRooms({
+          roomCode:
+            data.roomCode,
 
           roomName:
             "My Vibe Room",
 
-          roomCode:
-            data.roomCode,
-
           createdBy:
             name.trim(),
 
-          songs: 0,
+          songs:
+            0,
 
           type:
             "created",
-        };
-
-        const updatedRooms = [
-          newRoom,
-          ...rooms,
-        ];
-
-        saveUserRooms(
-          updatedRooms
-        );
+        });
 
         navigate(
           `/room/${data.roomCode}`
         );
+
       } catch (error) {
         console.error(
           "Create room error:",
@@ -286,17 +335,19 @@ function HomePage() {
         alert(
           "Cannot connect to VibeRoom server."
         );
+
       } finally {
         setLoading(false);
       }
     };
 
   /* =========================
-     JOIN ROOM
+     JOIN FRIEND ROOM
   ========================= */
 
   const joinRoom =
     async () => {
+
       if (
         name.trim() === ""
       ) {
@@ -341,54 +392,33 @@ function HomePage() {
           return;
         }
 
-        getUserId();
-
-        sessionStorage.setItem(
+        localStorage.setItem(
           "listenerName",
           name.trim()
         );
 
-        const alreadyExists =
-          rooms.some(
-            (room) =>
-              room.roomCode ===
-              formattedCode
-          );
+        addRoomToSavedRooms({
+          roomCode:
+            formattedCode,
 
-        if (!alreadyExists) {
-          const joinedRoom = {
-            id: Date.now(),
+          roomName:
+            "Joined Vibe Room",
 
-            roomName:
-              "Joined Vibe Room",
+          createdBy:
+            data.room.createdBy,
 
-            roomCode:
-              formattedCode,
+          songs:
+            data.room.playlist
+              ?.length || 0,
 
-            createdBy:
-              data.room.createdBy,
-
-            songs:
-              data.room.playlist
-                ?.length || 0,
-
-            type:
-              "joined",
-          };
-
-          const updatedRooms = [
-            joinedRoom,
-            ...rooms,
-          ];
-
-          saveUserRooms(
-            updatedRooms
-          );
-        }
+          type:
+            "joined",
+        });
 
         navigate(
           `/room/${formattedCode}`
         );
+
       } catch (error) {
         console.error(
           "Join room error:",
@@ -398,6 +428,111 @@ function HomePage() {
         alert(
           "Cannot connect to VibeRoom server."
         );
+
+      } finally {
+        setLoading(false);
+      }
+    };
+
+  /* =========================
+     ALREADY HAVE A ROOM
+  ========================= */
+
+  const openExistingRoom =
+    async () => {
+
+      if (
+        name.trim() === ""
+      ) {
+        alert(
+          "Please enter your name first."
+        );
+
+        return;
+      }
+
+      if (
+        existingCode.trim() === ""
+      ) {
+        alert(
+          "Please enter your previous room code."
+        );
+
+        return;
+      }
+
+      const formattedCode =
+        existingCode
+          .trim()
+          .toUpperCase();
+
+      try {
+        setLoading(true);
+
+        const response =
+          await fetch(
+            `${API_URL}/room/${formattedCode}`
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          alert(
+            "Room not found. Please check your room code."
+          );
+
+          return;
+        }
+
+        localStorage.setItem(
+          "listenerName",
+          name.trim()
+        );
+
+        const userId =
+          getUserId();
+
+        const isCreator =
+          data.room.adminId ===
+          userId;
+
+        addRoomToSavedRooms({
+          roomCode:
+            formattedCode,
+
+          roomName:
+            isCreator
+              ? "My Vibe Room"
+              : "Saved Vibe Room",
+
+          createdBy:
+            data.room.createdBy,
+
+          songs:
+            data.room.playlist
+              ?.length || 0,
+
+          type:
+            isCreator
+              ? "created"
+              : "saved",
+        });
+
+        navigate(
+          `/room/${formattedCode}`
+        );
+
+      } catch (error) {
+        console.error(
+          "Open existing room error:",
+          error
+        );
+
+        alert(
+          "Cannot connect to VibeRoom server."
+        );
+
       } finally {
         setLoading(false);
       }
@@ -409,6 +544,7 @@ function HomePage() {
 
   const openRoom =
     async (roomCode) => {
+
       if (
         name.trim() === ""
       ) {
@@ -427,15 +563,13 @@ function HomePage() {
 
         if (!response.ok) {
           alert(
-            "This room is no longer active."
+            "This room is no longer available."
           );
 
           return;
         }
 
-        getUserId();
-
-        sessionStorage.setItem(
+        localStorage.setItem(
           "listenerName",
           name.trim()
         );
@@ -443,6 +577,7 @@ function HomePage() {
         navigate(
           `/room/${roomCode}`
         );
+
       } catch (error) {
         console.error(
           "Open room error:",
@@ -466,6 +601,7 @@ function HomePage() {
         handleMouseMove
       }
     >
+
       <div className="night-bg">
       </div>
 
@@ -474,7 +610,8 @@ function HomePage() {
         alt="VibeRoom"
         className="room-image"
         style={{
-          transform: `translate(${position.x}px, ${position.y}px) scale(1.04)`,
+          transform:
+            `translate(${position.x}px, ${position.y}px) scale(1.04)`,
         }}
       />
 
@@ -503,10 +640,15 @@ function HomePage() {
 
         <p className="description">
           Create a collaborative
-          room. Share the link.
+          room. Share the code.
           <br />
+
           Listen together.
         </p>
+
+        {/* =====================
+            NAME
+        ===================== */}
 
         <div className="name-card">
 
@@ -527,6 +669,10 @@ function HomePage() {
 
         </div>
 
+        {/* =====================
+            MAIN BUTTONS
+        ===================== */}
+
         <div className="buttons">
 
           <button
@@ -538,18 +684,21 @@ function HomePage() {
               loading
             }
           >
-            {loading
-              ? "Please wait..."
-              : "+ Create Room"}
+            + Create Room
           </button>
 
           <button
             className="join-btn"
-            onClick={() =>
+            onClick={() => {
+
               setShowJoin(
                 !showJoin
-              )
-            }
+              );
+
+              setShowExisting(
+                false
+              );
+            }}
             disabled={
               loading
             }
@@ -559,12 +708,39 @@ function HomePage() {
 
         </div>
 
+        {/* =====================
+            ALREADY HAVE ROOM
+        ===================== */}
+
+        <button
+          className="already-room-btn"
+          onClick={() => {
+
+            setShowExisting(
+              !showExisting
+            );
+
+            setShowJoin(
+              false
+            );
+          }}
+          disabled={
+            loading
+          }
+        >
+          🎵 Already Have a Room
+        </button>
+
+        {/* =====================
+            JOIN FRIEND ROOM
+        ===================== */}
+
         {showJoin && (
           <div className="join-box">
 
             <input
               type="text"
-              placeholder="Enter room code"
+              placeholder="Enter friend's room code"
               value={
                 joinCode
               }
@@ -576,6 +752,7 @@ function HomePage() {
                 )
               }
               onKeyDown={(e) => {
+
                 if (
                   e.key ===
                   "Enter"
@@ -600,6 +777,7 @@ function HomePage() {
             <button
               className="join-cancel-btn"
               onClick={() => {
+
                 setShowJoin(
                   false
                 );
@@ -615,6 +793,72 @@ function HomePage() {
           </div>
         )}
 
+        {/* =====================
+            EXISTING ROOM
+        ===================== */}
+
+        {showExisting && (
+          <div className="existing-room-box">
+
+            <input
+              type="text"
+              placeholder="Enter your previous room code"
+              value={
+                existingCode
+              }
+              maxLength={6}
+              onChange={(e) =>
+                setExistingCode(
+                  e.target.value
+                    .toUpperCase()
+                )
+              }
+              onKeyDown={(e) => {
+
+                if (
+                  e.key ===
+                  "Enter"
+                ) {
+                  openExistingRoom();
+                }
+              }}
+            />
+
+            <button
+              className="existing-open-btn"
+              onClick={
+                openExistingRoom
+              }
+              disabled={
+                loading
+              }
+            >
+              Open
+            </button>
+
+            <button
+              className="existing-cancel-btn"
+              onClick={() => {
+
+                setShowExisting(
+                  false
+                );
+
+                setExistingCode(
+                  ""
+                );
+              }}
+            >
+              Cancel
+            </button>
+
+          </div>
+        )}
+
+        {/* =====================
+            SYNC MESSAGE
+        ===================== */}
+
         <p className="sync-text">
 
           Each listener enjoys
@@ -629,6 +873,10 @@ function HomePage() {
 
         </p>
 
+        {/* =====================
+            YOUR ROOMS
+        ===================== */}
+
         <div className="rooms-section">
 
           <h2>
@@ -639,8 +887,9 @@ function HomePage() {
 
             <p className="no-rooms-text">
               No rooms yet.
-              Create one or join
-              with a friend's code.
+              Create your own room,
+              join a friend's room,
+              or open a previous room.
             </p>
 
           ) : (
@@ -696,12 +945,13 @@ function HomePage() {
         </div>
 
       </div>
+
     </div>
   );
 }
 
 /* =========================
-   APP ROUTES
+   ROUTES
 ========================= */
 
 function App() {

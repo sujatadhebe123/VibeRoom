@@ -86,7 +86,7 @@ function getYouTubeVideoId(url) {
 
 function getUserId() {
   let userId =
-    sessionStorage.getItem(
+    localStorage.getItem(
       "vibeUserId"
     );
 
@@ -99,7 +99,7 @@ function getUserId() {
         .toString(36)
         .substring(2, 10);
 
-    sessionStorage.setItem(
+    localStorage.setItem(
       "vibeUserId",
       userId
     );
@@ -119,7 +119,7 @@ function Room() {
     getUserId();
 
   const listenerName =
-    sessionStorage.getItem(
+    localStorage.getItem(
       "listenerName"
     ) || "Guest";
 
