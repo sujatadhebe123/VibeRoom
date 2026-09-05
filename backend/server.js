@@ -12,6 +12,17 @@ const { Server } = require("socket.io");
 
 const app = express();
 
+/*
+  Frontends allowed to communicate with this backend.
+
+  Local URLs:
+  - Vite localhost
+  - Vite 127.0.0.1
+
+  Production:
+  - Vercel deployed VibeRoom
+*/
+
 const FRONTEND_URL =
   process.env.FRONTEND_URL ||
   "http://localhost:5173";
@@ -19,25 +30,79 @@ const FRONTEND_URL =
 const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
+  "https://vibe-room-rosy.vercel.app",
   FRONTEND_URL,
 ];
 
-app.use(
-  cors({
-    origin: allowedOrigins,
-    methods: ["GET", "POST"],
-  })
-);
+/* =====================================================
+   EXPRESS CORS
+===================================================== */
+
+const corsOptions = {
+  origin: function (origin, callback) {
+    /*
+      Requests such as Render health checks,
+      Postman, etc. may not contain Origin.
+    */
+
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.log(
+      "Blocked CORS origin:",
+      origin
+    );
+
+    return callback(
+      new Error("Not allowed by CORS")
+    );
+  },
+
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
+
+  credentials: true,
+};
+
+app.use(cors(corsOptions));
 
 app.use(express.json());
 
-const server =
-  http.createServer(app);
+/* =====================================================
+   HTTP SERVER
+===================================================== */
+
+const server = http.createServer(app);
+
+/* =====================================================
+   SOCKET.IO
+===================================================== */
 
 const io = new Server(server, {
   cors: {
     origin: allowedOrigins,
-    methods: ["GET", "POST"],
+
+    methods: [
+      "GET",
+      "POST",
+    ],
+
+    credentials: true,
   },
 });
 
@@ -133,7 +198,6 @@ const Room =
 
 /* =====================================================
    ONLINE USERS
-   These do NOT need MongoDB persistence.
 ===================================================== */
 
 const onlineUsers = {};
@@ -159,21 +223,15 @@ function removeSocketFromRoom(
   }
 
   onlineUsers[roomCode] =
-    onlineUsers[
-      roomCode
-    ].filter(
+    onlineUsers[roomCode].filter(
       (user) =>
-        user.socketId !==
-        socketId
+        user.socketId !== socketId
     );
 
   if (
-    onlineUsers[roomCode]
-      .length === 0
+    onlineUsers[roomCode].length === 0
   ) {
-    delete onlineUsers[
-      roomCode
-    ];
+    delete onlineUsers[roomCode];
   }
 }
 
@@ -273,6 +331,7 @@ app.post(
           .status(400)
           .json({
             success: false,
+
             message:
               "Room already exists.",
           });
@@ -499,18 +558,17 @@ io.on(
             return;
           }
 
-          /* Remove socket from old room
-             if needed */
+          /*
+            Remove socket from old room
+            if needed
+          */
 
           if (
-            socket.data
-              .roomCode &&
-            socket.data
-              .roomCode !== code
+            socket.data.roomCode &&
+            socket.data.roomCode !== code
           ) {
             const oldRoom =
-              socket.data
-                .roomCode;
+              socket.data.roomCode;
 
             removeSocketFromRoom(
               oldRoom,
@@ -533,8 +591,10 @@ io.on(
 
           socket.join(code);
 
-          /* Store authenticated
-             identity for this socket */
+          /*
+            Store user identity
+            for this socket
+          */
 
           socket.data.roomCode =
             code;
@@ -632,8 +692,8 @@ io.on(
         socket.leave(code);
 
         if (
-          socket.data
-            .roomCode === code
+          socket.data.roomCode ===
+          code
         ) {
           socket.data.roomCode =
             null;
@@ -688,14 +748,6 @@ io.on(
 
             return;
           }
-
-          /*
-            We use identity stored
-            when the socket joined
-            instead of trusting
-            ownerId/addedBy sent by
-            the browser.
-          */
 
           const ownerId =
             socket.data.userId;
@@ -1009,8 +1061,7 @@ io.on(
         );
 
         const roomCode =
-          socket.data
-            .roomCode;
+          socket.data.roomCode;
 
         if (!roomCode) {
           return;
@@ -1044,8 +1095,7 @@ const PORT =
 async function startServer() {
   try {
     if (
-      !process.env
-        .MONGODB_URI
+      !process.env.MONGODB_URI
     ) {
       throw new Error(
         "MONGODB_URI is missing from .env"
@@ -1064,7 +1114,12 @@ async function startServer() {
       PORT,
       () => {
         console.log(
-          `Server running on http://localhost:${PORT}`
+          `Server running on port ${PORT}`
+        );
+
+        console.log(
+          "Allowed frontend origins:",
+          allowedOrigins
         );
       }
     );
